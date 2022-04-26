@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
@@ -11,12 +12,40 @@ app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wiwcm.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-client.connect(err => {
-  const collection = client.db("emaJohn").collection("product");
-  console.log('mongodb are connected');
-  // perform actions on the collection object
-  client.close();
-});
+
+async function run() {
+    try {
+        await client.connect();
+        const productsCollection = client.db('emaJohn').collection('product');
+
+        app.get('/product', async (req, res) => {
+            console.log('query', req.query);
+            const page = parseInt(req.query.page);
+            const size = parseInt(req.query.size);
+
+            const query = {};
+            const cursor = productsCollection.find(query);
+            let products;
+            if (page || size) {
+                products = await cursor.skip(page * size).limit(size).toArray();
+            }
+            else {
+                products = await cursor.toArray();
+            }
+            res.send(products);
+        });
+
+        // for pagination
+        app.get('/productCount', async (req, res) => {
+            const count = await productsCollection.estimatedDocumentCount();
+            res.send({ count });
+        })
+    }
+    finally {
+
+    }
+}
+run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
